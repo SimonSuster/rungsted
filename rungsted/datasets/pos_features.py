@@ -1,5 +1,9 @@
+import numpy as np
+
+
 def normalize_word(word):
     return word.replace(":", "COL")
+
 
 def normalize_label(label):
     norm_label = label.replace("``", "O_QUOT")\
@@ -12,6 +16,65 @@ def normalize_label(label):
         norm_label = "*EMPTY*"
 
     return norm_label
+
+
+def opt_to_mean(o):
+    """
+    From bimu.
+    :param o: npy object
+    """
+    if o.ndim == 3:
+        return lambda x: np.mean(x, axis=0)  # avgEmb
+    elif o.ndim == 2:
+        return lambda x: x  # identity
+    else:
+        raise NotImplementedError
+
+
+def contexts(words, i, vocab, win=3):
+
+    win_start = max(0, i-win)
+    win_end = min(len(words), i+win+1)
+
+    cs = []
+    for i_left in range(win_start, i):
+        cs.append(vocab.get(words[i_left], -1))
+    if i < win_end:
+        for i_right in range(i, win_end):
+            cs.append(vocab.get(words[i_right], -1))
+    return cs
+
+
+def softmax(x):
+    assert x.ndim == 1
+    return np.exp(x) / np.sum(np.exp(x))
+
+
+def wordreps(words, cpost_tags, i, embs, vocab, c_embs=None):
+    feats = []
+    word = words[i]
+    w_id = vocab.get(word, -1)
+
+    if w_id != -1:
+        if embs.ndim == 3:
+            if c_embs is not None:  # try avgExp
+                assert c_embs.ndim == 2
+                cs = contexts(words, i, vocab)
+                if cs:
+                    cmean = np.mean(c_embs[np.array(cs)], axis=0)
+                    act = np.dot(embs[w_id], cmean)
+                    emb = np.average(embs[w_id], weights=softmax(act), axis=0)
+                else:
+                    emb = np.mean(embs[w_id], axis=0)
+            else:
+                emb = np.mean(embs[w_id], axis=0)
+        else:
+            emb = embs[w_id]
+
+        for j, v in enumerate(emb):
+            feats.append("emb{}={}".format(j, v))
+
+    return feats
 
 
 def taskar12(words, cpos_tags, i):
@@ -36,6 +99,7 @@ def taskar12(words, cpos_tags, i):
         feats.append("hasdigit")
 
     return feats
+
 
 def honnibal13(words, cpos_tags, i):
     # Features from http://honnibal.wordpress.com/2013/09/11/a-good-part-of-speechpos-tagger-in-about-200-lines-of-python/.
@@ -69,6 +133,7 @@ def honnibal13(words, cpos_tags, i):
         add('>>w', next2)
 
     return feats
+
 
 def honnibal13_groups(words, cpos_tags, i):
     feats = []

@@ -2,7 +2,7 @@
 """Create Rungsted compatible feature files from treebanks
 
 Usage:
-  conll_to_vw.py <input> <output> [--feature-set NAME] [--name NAME] [--coarse]
+  conll_to_vw.py <input> <output> [--feature-set NAME] [--name NAME] [--coarse] [--embs FILE] [--vocab FILE]
   conll_to_vw.py (-h | --help)
 
 Options:
@@ -10,11 +10,14 @@ Options:
   --feature-set NAME        Which feature to use [default: honnibal13].
   --name NAME               Name of dataset. Output as part of the id for each token [default: d].
   --coarse                  Use coarse-grained tags.
+  --embs NAME                    File to embeddings in npy.
+  --vocab NAME                   File to embdding vocabulary in txt.
 """
 import codecs
 from collections import defaultdict
 from docopt import docopt
-from pos_features import taskar12, honnibal13, honnibal13_groups, normalize_label, normalize_word
+import numpy as np
+from pos_features import taskar12, honnibal13, honnibal13_groups, normalize_label, normalize_word, wordreps
 
 if __name__ == '__main__':
     args = docopt(__doc__)
@@ -25,19 +28,37 @@ if __name__ == '__main__':
     features_for_token = {
         'taskar12': taskar12,
         'honnibal13': honnibal13,
-        'honnibal13-groups': honnibal13_groups
+        'honnibal13-groups': honnibal13_groups,
+        'wordreps': wordreps
     }[args['--feature-set']]
 
-    def output_sentence(sent):
+    def output_sentence(sent, embs=None, vocab=None):
         label_key = 'cpos' if args['--coarse'] else 'pos'
-        for i in range(len(sent['word'])):
-            print >>data_out, "{label} '{name}-{sent_i}-{token_i}|".format(
-                label=normalize_label(sent[label_key][i]),
-                name=args['--name'],
-                sent_i=sent_i,
-                token_i=i+1),
-            print >>data_out, u" ".join(features_for_token(sent['word'], sent[label_key], i))
+        if embs is not None and vocab is not None:
+            for i in range(len(sent['word'])):
+                print >>data_out, "{label} '{name}-{sent_i}-{token_i}|".format(
+                    label=normalize_label(sent[label_key][i]),
+                    name=args['--name'],
+                    sent_i=sent_i,
+                    token_i=i+1),
+                print >>data_out, u" ".join(features_for_token(sent['word'], sent[label_key], i, embs=embs, vocab=vocab))
+        else:
+            for i in range(len(sent['word'])):
+                print >>data_out, "{label} '{name}-{sent_i}-{token_i}|".format(
+                    label=normalize_label(sent[label_key][i]),
+                    name=args['--name'],
+                    sent_i=sent_i,
+                    token_i=i+1),
+                print >>data_out, u" ".join(features_for_token(sent['word'], sent[label_key], i))
 
+
+    embs = None
+    vocab = None
+    if args['--feature-set'] == "wordreps":
+        embs = np.load(args["--embs"])
+        vocab_f = codecs.open(args['--vocab'], encoding='utf-8')
+        vocab = {l.strip(): i for i, l in enumerate(vocab_f)}
+        vocab_f.close()
     # Process one sentence at a time
     sent = defaultdict(list)
     sent_i = 1
@@ -58,11 +79,11 @@ if __name__ == '__main__':
         elif len(parts) == 0:
             if sent_i > 1:
                 print >>data_out, ""
-            output_sentence(sent)
+            output_sentence(sent, embs, vocab)
             sent_i += 1
             sent = defaultdict(list)
         else:
             raise "Invalid input format"
 
     if len(sent['word']):
-        output_sentence(sent)
+        output_sentence(sent, embs, vocab)

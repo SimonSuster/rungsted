@@ -225,7 +225,7 @@ def main():
 
 
         timers['test'].end()
-        logging.info("Accuracy: {:.3f}".format(accuracy(test)))
+        logging.info("Accuracy: {:.5}".format(accuracy(test)))
         print("Test took {:.2f} secs. {} words/sec".format(timers['test'].elapsed(),
                                                                              int(sum(len(seq) for seq in test) / timers['test'].elapsed())),
               file=sys.stderr)
