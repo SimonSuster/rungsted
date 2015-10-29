@@ -72,7 +72,7 @@ def wordreps(words, cpost_tags, i, embs, vocab, c_embs=None):
             emb = embs[w_id]
 
         for j, v in enumerate(emb):
-            feats.append("emb{}={}".format(j, v))
+            feats.append("emb{}={}".format(j, round(v, 3)))
 
     return feats
 
