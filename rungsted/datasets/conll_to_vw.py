@@ -2,7 +2,7 @@
 """Create Rungsted compatible feature files from treebanks
 
 Usage:
-  conll_to_vw.py <input> <output> [--feature-set NAME] [--name NAME] [--coarse] [--embs FILE] [--vocab FILE]
+  conll_to_vw.py <input> <output> [--feature-set NAME] [--name NAME] [--coarse] [--embs FILE] [--vocab FILE] [--c_embs FILE]
   conll_to_vw.py (-h | --help)
 
 Options:
@@ -12,6 +12,7 @@ Options:
   --coarse                  Use coarse-grained tags.
   --embs NAME                    File to embeddings in npy.
   --vocab NAME                   File to embdding vocabulary in txt.
+  --c_embs NAME                    File to context embeddings in npy. Makes sense for multi-sense embeddings (avgExp)
 """
 import codecs
 from collections import defaultdict
@@ -32,7 +33,7 @@ if __name__ == '__main__':
         'wordreps': wordreps
     }[args['--feature-set']]
 
-    def output_sentence(sent, embs=None, vocab=None):
+    def output_sentence(sent, embs=None, vocab=None, c_embs=None):
         label_key = 'cpos' if args['--coarse'] else 'pos'
         if embs is not None and vocab is not None:
             for i in range(len(sent['word'])):
@@ -41,7 +42,8 @@ if __name__ == '__main__':
                     name=args['--name'],
                     sent_i=sent_i,
                     token_i=i+1),
-                print >>data_out, u" ".join(features_for_token(sent['word'], sent[label_key], i, embs=embs, vocab=vocab))
+                print >>data_out, u" ".join(features_for_token(sent['word'], sent[label_key], i, embs=embs, vocab=vocab,
+                                                               c_embs=c_embs))
         else:
             for i in range(len(sent['word'])):
                 print >>data_out, "{label} '{name}-{sent_i}-{token_i}|".format(
@@ -53,9 +55,12 @@ if __name__ == '__main__':
 
 
     embs = None
+    c_embs = None
     vocab = None
     if args['--feature-set'] == "wordreps":
         embs = np.load(args["--embs"])
+        if args['--c_embs'] is not None:
+            c_embs = np.load(args["--c_embs"])
         vocab_f = codecs.open(args['--vocab'], encoding='utf-8')
         vocab = {l.strip(): i for i, l in enumerate(vocab_f)}
         vocab_f.close()
@@ -79,11 +84,11 @@ if __name__ == '__main__':
         elif len(parts) == 0:
             if sent_i > 1:
                 print >>data_out, ""
-            output_sentence(sent, embs, vocab)
+            output_sentence(sent, embs, vocab, c_embs)
             sent_i += 1
             sent = defaultdict(list)
         else:
             raise "Invalid input format"
 
     if len(sent['word']):
-        output_sentence(sent, embs, vocab)
+        output_sentence(sent, embs, vocab, c_embs)
