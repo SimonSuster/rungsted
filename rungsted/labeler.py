@@ -14,7 +14,6 @@ import logging
 import os
 # Perhaps import cPickle if Python version < 3.0
 import pickle
-import IPython
 import numpy as np
 import pandas as pd
 import sys
